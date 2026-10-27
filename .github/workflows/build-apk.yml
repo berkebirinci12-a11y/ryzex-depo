@@ -1,0 +1,41 @@
+name: Build APK
+
+on:
+  push:
+    branches: [claude/mobile-fighting-game-0x3wke]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm install
+      - run: mkdir -p www && cp index.html www/
+      - run: npx cap add android
+      - name: Force landscape
+        run: sed -i 's/<activity /<activity android:screenOrientation="sensorLandscape" /' android/app/src/main/AndroidManifest.xml
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uc-stil-dovus-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk uc-stil-dovus.apk
+          gh release delete apk-latest -y --cleanup-tag || true
+          gh release create apk-latest uc-stil-dovus.apk --title "Üç Stil Dövüş APK" --notes "Android APK (debug imzalı)"
